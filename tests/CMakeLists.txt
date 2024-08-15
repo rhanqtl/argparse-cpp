@@ -3,3 +3,5 @@ target_sources(argparse_test PRIVATE
     basic.cpp
 )
 target_link_libraries(argparse_test PRIVATE gtest gtest_main)
+
+add_subdirectory(errors)

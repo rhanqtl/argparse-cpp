@@ -54,6 +54,7 @@ class ArgumentParser {
     std::vector<std::string_view> unrecognized;
 
     void add_unrecognized(std::string_view x) {
+      std::cout << __FUNCTION__ << ' ' << x << '\n';
       unrecognized.push_back(x);
       any = true;
     }
@@ -89,6 +90,7 @@ class ArgumentParser {
     Args args{gc.data(), gc.size()};
     std::cout << args << '\n';
     while (!args.empty()) {
+      std::cout << "---\n";
       std::cout << args << '\n';
       auto first = args[0];
       std::string_view first_name;
@@ -100,6 +102,9 @@ class ArgumentParser {
       auto it = _args.find(first_name);
       if (it == _args.end()) {
         _errs.add_unrecognized(first);
+        args = args.drop(1);
+        std::cout << "===\n";
+        std::cout << args << '\n';
         continue;
       }
       args = it->second->parse(args);
