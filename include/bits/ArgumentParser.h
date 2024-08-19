@@ -15,8 +15,9 @@
 #include "bits/ArrayView.h"
 #include "bits/Debug.h"
 #include "bits/OrderedDict.h"
+#include "bits/ParseValue.h"
 #include "bits/Strings.h"
-#include "bits/ValueParser.h"
+#include "bits/Types.h"
 
 namespace argparse {
 class ArgumentParser {
@@ -32,12 +33,10 @@ class ArgumentParser {
   };
 
  private:
-  using Args = util::ArrayView<std::string_view>;
-
   struct OptionInfo {
     const OptionDesc desc;
 
-    virtual Args parse(Args arr) = 0;
+    virtual Inputs parse(Inputs arr) = 0;
     virtual bool match(const std::type_info &) const = 0;
 
     OptionInfo(const OptionDesc &desc) : desc{desc} {}
@@ -50,16 +49,16 @@ class ArgumentParser {
 
     T data;
 
-    Args parse(Args tokens) override {
+    Inputs parse(Inputs inputs) override {
       if constexpr (std::is_same_v<T, bool>) {
         data = true;
-        return tokens.drop(1);
+        return inputs.drop(1);
       }
       // The form '-X=1' is not supported yet, so always skip.
-      tokens = tokens.drop(1);
-      ValueParser vp;
-      vp.parse(tokens, data);
-      return tokens.drop(1);
+      inputs = inputs.drop(1);
+      // Use ADL to call the correct version.
+      parse_value(inputs, data);
+      return inputs;
     }
 
     bool match(const std::type_info &ti) const override {
@@ -70,7 +69,7 @@ class ArgumentParser {
   struct ArgumentInfo {
     const ArgumentDesc desc;
 
-    virtual Args parse(Args args) = 0;
+    virtual Inputs parse(Inputs args) = 0;
     virtual bool has_type(const std::type_info &) const = 0;
 
     ArgumentInfo(const ArgumentDesc &desc) : desc{desc} {}
@@ -83,10 +82,10 @@ class ArgumentParser {
 
     T data;
 
-    Args parse(Args args) override {
-      ValueParser vp;
-      vp.parse(args, data);
-      return args.drop(1);
+    Inputs parse(Inputs inputs) override {
+      // Use ADL to call the correct version.
+      parse_value(inputs, data);
+      return inputs;
     }
     bool has_type(const std::type_info &ti) const override {
       return typeid(T) == ti;
@@ -159,9 +158,9 @@ class ArgumentParser {
     for (int i = 1; i < argc; i++) {
       gc.emplace_back(argv[i]);
     }
-    Args args{gc.data(), gc.size()};
-    while (!args.empty()) {
-      auto first = args[0];
+    auto inputs = Inputs{gc.data(), gc.size()};
+    while (!inputs.empty()) {
+      auto first = inputs[0];
 
       if (util::strings::starts_with(first, "-")) {
         std::string_view first_name;
@@ -174,17 +173,17 @@ class ArgumentParser {
         auto it = _opts.find(first_name);
         if (it == _opts.end()) {
           _errs.add_unrecognized(first);
-          args = args.drop(1);
+          inputs = inputs.drop(1);
           continue;
         }
-        args = it->second->parse(args);
+        inputs = it->second->parse(inputs);
       } else {
         if (arg_index >= all_args.size()) {
           // Too many arguments.
           return;
         }
         auto *info = all_args[arg_index];
-        args = info->parse(args);
+        inputs = info->parse(inputs);
         ARGPARSE_DEBUG(info->desc.name);
         all_required.erase(info->desc.name);
         arg_index++;
