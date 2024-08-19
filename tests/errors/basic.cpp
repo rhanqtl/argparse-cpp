@@ -9,7 +9,7 @@ using namespace argparse;
 
 TEST(argparse_errors, Basic) {
   ArgumentParser parser;
-  parser.add_argument<std::string>({.long_name = "abc"});
+  parser.add_option<std::string>({.long_name = "abc"});
 
   char *argv[] = {"prog", "xyz"};
   int argc = 2;
